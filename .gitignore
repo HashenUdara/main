@@ -1,0 +1,7 @@
+*.zip
+
+/treasure-hunt/checkpoints/*
+/treasure-hunt/teams/*
+
+!/treasure-hunt/teams/.gitkeep
+!/treasure-hunt/checkpoints/.gitkeep
