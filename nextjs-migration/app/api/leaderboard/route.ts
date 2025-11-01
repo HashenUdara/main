@@ -35,7 +35,7 @@ export async function GET() {
         id: teams.id,
         name: teams.name,
         solved: count(teampath.id).as('solved'),
-        solvedTime: sql<string>`MAX(${teampath.solvedTime})::text`.as('solvedTime'),
+        solvedTime: sql<string>`MAX(${teampath.solvedTime})`.as('solvedTime'),
       })
       .from(teams)
       .leftJoin(teampath, eq(teams.id, teampath.teamID))
