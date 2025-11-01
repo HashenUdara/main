@@ -1,51 +1,54 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { teams, teampath } from '@/lib/schema';
+import { eq, sql, count, desc, asc } from 'drizzle-orm';
 
 export async function GET() {
   try {
-    interface TeamRow {
-      id: number;
-      name: string;
-      solved: number;
-      solvedTime: string;
-    }
-
     // Get teams with solved checkpoints
-    const solvedTeams = db.prepare(`
-      SELECT teams.id, teams.name, COUNT(teampath.id) AS solved, teams.timestamp AS solvedTime
-      FROM teams
-      INNER JOIN teampath ON teams.id = teampath.teamID
-      WHERE teampath.solved = ?
-      GROUP BY teams.id
-      ORDER BY solved DESC, solvedTime ASC
-    `).all(1) as TeamRow[];
+    const solvedTeams = await db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        solved: count(teampath.id).as('solved'),
+        solvedTime: teams.timestamp,
+      })
+      .from(teams)
+      .innerJoin(teampath, eq(teams.id, teampath.teamID))
+      .where(eq(teampath.solved, 1))
+      .groupBy(teams.id, teams.name, teams.timestamp)
+      .orderBy(desc(sql`count(${teampath.id})`), asc(teams.timestamp));
 
     const teamIDs = solvedTeams.map((team) => team.id);
     const leaderboard = solvedTeams.map((team, index) => ({
       name: team.name,
-      solved: team.solved,
-      solvedTime: team.solvedTime,
+      solved: Number(team.solved),
+      solvedTime: team.solvedTime.toISOString(),
       rank: index + 1,
     }));
 
     let rank = leaderboard.length + 1;
 
     // Get teams with no solved checkpoints
-    const unsolvedTeams = db.prepare(`
-      SELECT teams.id, teams.name, COUNT(teampath.id) AS solved, MAX(teampath.solvedTime) AS solvedTime
-      FROM teams
-      LEFT JOIN teampath ON teams.id = teampath.teamID
-      WHERE teampath.solved = ?
-      GROUP BY teams.id
-      ORDER BY solved DESC, solvedTime ASC
-    `).all(0) as TeamRow[];
+    const unsolvedTeams = await db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        solved: count(teampath.id).as('solved'),
+        solvedTime: sql<Date>`MAX(${teampath.solvedTime})`.as('solvedTime'),
+      })
+      .from(teams)
+      .leftJoin(teampath, eq(teams.id, teampath.teamID))
+      .where(eq(teampath.solved, 0))
+      .groupBy(teams.id, teams.name)
+      .orderBy(desc(sql`count(${teampath.id})`), asc(sql`MAX(${teampath.solvedTime})`));
 
     for (const team of unsolvedTeams) {
       if (!teamIDs.includes(team.id)) {
         leaderboard.push({
           name: team.name,
           solved: 0,
-          solvedTime: team.solvedTime,
+          solvedTime: team.solvedTime.toISOString(),
           rank: rank++,
         });
       }

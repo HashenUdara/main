@@ -1,42 +1,18 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from './schema';
 
-// Create or connect to SQLite database
-const dbPath = path.join(process.cwd(), 'riddle.db');
-const db = new Database(dbPath);
+// Get the database URL from environment variables
+const connectionString = process.env.DATABASE_URL || '';
 
-// Initialize database schema
-export function initDatabase() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS teams (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      password TEXT NOT NULL,
-      riddleIndex INTEGER NOT NULL DEFAULT 1,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS checkpoints (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      hash TEXT NOT NULL,
-      riddle TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS teampath (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      teamID INTEGER NOT NULL,
-      checkpointID INTEGER NOT NULL,
-      solved INTEGER DEFAULT 0,
-      solvedTime DATETIME DEFAULT CURRENT_TIMESTAMP,
-      orderNum INTEGER NOT NULL,
-      FOREIGN KEY (teamID) REFERENCES teams(id),
-      FOREIGN KEY (checkpointID) REFERENCES checkpoints(id)
-    );
-  `);
+if (!connectionString) {
+  throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Initialize on import
-initDatabase();
+// Create postgres client
+const client = postgres(connectionString);
+
+// Create drizzle instance
+const db = drizzle(client, { schema });
 
 export default db;
