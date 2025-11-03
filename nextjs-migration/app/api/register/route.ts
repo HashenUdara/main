@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { teams } from '@/lib/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,18 +15,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    interface TeamRow {
-      id: number;
-      name: string;
-      password: string;
-      riddleIndex: number;
-      timestamp: string;
-    }
-
     // Query the database to verify team credentials
-    const team = db.prepare('SELECT * FROM teams WHERE id = ? AND password = ?').get(teamID, password) as TeamRow | undefined;
+    const team = await db.select().from(teams).where(and(eq(teams.id, parseInt(teamID)), eq(teams.password, password))).limit(1);
 
-    if (!team) {
+    if (!team || team.length === 0) {
       return NextResponse.json({
         status: 400,
         desc: 'Invalid team ID or password',
@@ -34,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       status: 200,
       desc: 'Team registered successfully',
-      'team-name': team.name,
+      'team-name': team[0].name,
     });
   } catch (error) {
     console.error('Registration error:', error);

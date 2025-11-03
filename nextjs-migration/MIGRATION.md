@@ -6,7 +6,7 @@ This directory contains the modern NextJS migration of the legacy HTML/PHP Riddl
 
 - ✅ Next.js 16 with React Server Components
 - ✅ TypeScript for type safety
-- ✅ SQLite database with better-sqlite3
+- ✅ PostgreSQL database with Drizzle ORM
 - ✅ Tailwind CSS for styling
 - ✅ Modern React patterns (hooks, suspense)
 - ✅ API routes for backend logic
@@ -24,12 +24,20 @@ This directory contains the modern NextJS migration of the legacy HTML/PHP Riddl
 
 - Node.js 18+ installed
 - npm or pnpm package manager
+- PostgreSQL 13+ installed and running
 
 ### Installation
 
 ```bash
 # Install dependencies
 npm install
+
+# Copy the environment variables file and configure your database
+cp .env.example .env
+# Edit .env and set your DATABASE_URL
+
+# Create and migrate the database schema
+npm run db:migrate
 
 # Initialize the database with sample data
 npm run init-db
@@ -69,21 +77,23 @@ nextjs-migration/
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Home page
 ├── lib/                   # Utilities
-│   ├── db.ts             # Database connection
-│   └── types.ts          # TypeScript types
-├── public/               # Static assets
-├── scripts/              # Utility scripts
-│   └── populate-db.ts   # Database initialization
-└── package.json          # Dependencies
+│   ├── db.ts              # Database connection with Drizzle
+│   ├── schema.ts          # Drizzle ORM schema definitions
+│   └── types.ts           # TypeScript types
+├── public/                # Static assets
+├── scripts/               # Utility scripts
+│   ├── migrate-db.ts      # Database schema migration
+│   └── populate-db.ts     # Database initialization with sample data
+└── package.json           # Dependencies
 ```
 
 ## Database Schema
 
-The application uses SQLite with three main tables:
+The application uses PostgreSQL with Drizzle ORM and three main tables:
 
-- **teams** - Team information (id, name, password, timestamp)
+- **teams** - Team information (id, name, password, riddleIndex, timestamp)
 - **checkpoints** - Checkpoint data (id, name, hash, riddle)
-- **teampath** - Team progress tracking (teamID, checkpointID, solved, solvedTime)
+- **teampath** - Team progress tracking (id, teamID, checkpointID, solved, solvedTime, orderNum)
 
 ## API Endpoints
 
@@ -152,11 +162,12 @@ Get the current leaderboard rankings.
 
 ### Key Differences from Legacy Application
 
-1. **Database**: MySQL → SQLite (for local development, can be swapped back to MySQL)
+1. **Database**: MySQL → PostgreSQL with Drizzle ORM
 2. **Backend**: PHP → Next.js API routes with TypeScript
 3. **Frontend**: jQuery → Modern React with hooks
 4. **Styling**: Inline styles → CSS Modules
 5. **State Management**: localStorage + fetch API
+6. **ORM**: Raw SQL → Drizzle ORM for type-safe database queries
 
 ### Preserved Features
 
@@ -165,6 +176,29 @@ Get the current leaderboard rankings.
 - ✅ Checkpoint validation logic
 - ✅ Leaderboard ranking algorithm
 - ✅ Real-time leaderboard updates
+
+## Database Management
+
+### Available Scripts
+
+- `npm run db:migrate` - Create database tables
+- `npm run db:push` - Push schema changes to the database
+- `npm run db:generate` - Generate migration files
+- `npm run db:studio` - Open Drizzle Studio (database GUI)
+- `npm run init-db` - Populate database with sample data
+
+### Environment Variables
+
+Create a `.env` file in the root of the `nextjs-migration` directory:
+
+```env
+DATABASE_URL=postgresql://username:password@host:port/database
+```
+
+Example:
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/riddlerun
+```
 
 ## Testing
 

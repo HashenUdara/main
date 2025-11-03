@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { teams, checkpoints, teampath } from '@/lib/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,33 +15,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    interface TeamRow {
-      id: number;
-      name: string;
-      password: string;
-      riddleIndex: number;
-      timestamp: string;
-    }
-
-    interface CheckpointRow {
-      id: number;
-      name: string;
-      hash: string;
-      riddle: string;
-    }
-
-    interface TeamPathRow {
-      id: number;
-      teamID: number;
-      checkpointID: number;
-      solved: number;
-      solvedTime: string;
-      orderNum: number;
-    }
-
     // Authenticate team
-    const team = db.prepare('SELECT * FROM teams WHERE id = ? AND password = ?').get(teamID, password) as TeamRow | undefined;
-    if (!team) {
+    const teamResult = await db.select().from(teams).where(and(eq(teams.id, parseInt(teamID)), eq(teams.password, password))).limit(1);
+    if (!teamResult || teamResult.length === 0) {
       return NextResponse.json({
         status: 400,
         desc: 'Authentication failed',
@@ -47,21 +25,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Get checkpoint details
-    const checkpoint = db.prepare('SELECT * FROM checkpoints WHERE hash = ?').get(hash) as CheckpointRow | undefined;
-    if (!checkpoint) {
+    const checkpointResult = await db.select().from(checkpoints).where(eq(checkpoints.hash, hash)).limit(1);
+    if (!checkpointResult || checkpointResult.length === 0) {
       return NextResponse.json({
         status: 400,
         desc: 'Invalid checkpoint hash',
       });
     }
 
+    const checkpoint = checkpointResult[0];
     const checkpointID = checkpoint.id;
     const checkpointName = checkpoint.name;
 
     // Get team path
-    const teamPath = db.prepare('SELECT * FROM teampath WHERE teamID = ? ORDER BY orderNum ASC').all(teamID) as TeamPathRow[];
+    const teamPathResult = await db.select().from(teampath).where(eq(teampath.teamID, parseInt(teamID))).orderBy(teampath.orderNum);
     
-    if (teamPath.length === 0) {
+    if (teamPathResult.length === 0) {
       return NextResponse.json({
         status: 400,
         desc: 'Invalid team ID or password',
@@ -69,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if all previous checkpoints are solved
-    for (const path of teamPath) {
+    for (const path of teamPathResult) {
       if (path.solved === 0 && path.checkpointID !== checkpointID) {
         return NextResponse.json({
           status: 400,
@@ -83,17 +62,19 @@ export async function POST(request: NextRequest) {
 
       // Update the checkpoint if not solved
       if (path.solved === 0) {
-        const updateStmt = db.prepare('UPDATE teampath SET solved = 1, solvedTime = datetime("now") WHERE teamID = ? AND checkpointID = ?');
-        updateStmt.run(teamID, checkpointID);
+        await db.update(teampath)
+          .set({ solved: 1, solvedTime: new Date() })
+          .where(and(eq(teampath.teamID, parseInt(teamID)), eq(teampath.checkpointID, checkpointID)));
 
         // Update team timestamp
-        const updateTeamStmt = db.prepare('UPDATE teams SET timestamp = datetime("now") WHERE id = ?');
-        updateTeamStmt.run(teamID);
+        await db.update(teams)
+          .set({ timestamp: new Date() })
+          .where(eq(teams.id, parseInt(teamID)));
       }
 
       // Get the next checkpoint
-      const currentIndex = teamPath.findIndex((p) => p.checkpointID === checkpointID);
-      if (currentIndex === -1 || currentIndex === teamPath.length - 1) {
+      const currentIndex = teamPathResult.findIndex((p) => p.checkpointID === checkpointID);
+      if (currentIndex === -1 || currentIndex === teamPathResult.length - 1) {
         return NextResponse.json({
           status: 200,
           desc: 'Checkpoint solved successfully',
@@ -102,10 +83,10 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const nextPath = teamPath[currentIndex + 1];
-      const nextCheckpoint = db.prepare('SELECT * FROM checkpoints WHERE id = ?').get(nextPath.checkpointID) as CheckpointRow | undefined;
+      const nextPath = teamPathResult[currentIndex + 1];
+      const nextCheckpointResult = await db.select().from(checkpoints).where(eq(checkpoints.id, nextPath.checkpointID)).limit(1);
 
-      if (!nextCheckpoint) {
+      if (!nextCheckpointResult || nextCheckpointResult.length === 0) {
         return NextResponse.json({
           status: 200,
           desc: 'Checkpoint solved successfully',
@@ -113,6 +94,8 @@ export async function POST(request: NextRequest) {
           name: checkpointName,
         });
       }
+
+      const nextCheckpoint = nextCheckpointResult[0];
 
       return NextResponse.json({
         status: 200,
