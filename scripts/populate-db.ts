@@ -152,7 +152,7 @@ async function populateDatabase() {
         name: "UCSC Open Area (Hangout Spot)",
         hash: "639f007743a826bc8df1346267253b957557a",
         riddle:
-          "A place where energy lingers all day, where voices rise and ideas play. Beneath the open air, with no fans to spare — your clue hides where chatter never fades.",
+          "Find the place where the wind does the talking, the roots do the guarding,and the benches look away politely when two people sit a little too close.",
       },
       {
         id: 11,

@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: center;
   overflow-x: hidden;
-  font-family: 'Rubik', sans-serif;
+  font-family: "Rubik", sans-serif;
 }
 
 .mainInner {
@@ -39,7 +39,7 @@
 
 .riddleWrapper blockquote,
 .riddleWrapper cite {
-  font-family: 'Special Elite', cursive;
+  /* font-family: 'Special Elite', cursive; */
   color: #3f3f5a;
   display: flex;
   flex-direction: column;
